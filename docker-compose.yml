@@ -4,6 +4,7 @@ services:
   jaeger:
     container_name: jaeger
     image: jaegertracing/all-in-one:1.50
+    user: root
     ports:
       - 80:16686 # Jaeger UI
       - 4317:4317 # OpenTelemetry Protocol (OTLP) over gRPC
@@ -11,27 +12,31 @@ services:
       - 14268:14268 # jaeger.thrift directly from clients
     environment:
       - COLLECTOR_OTLP_ENABLED=true
-      - SPAN_STORAGE_TYPE=elasticsearch
-      - ES_SERVER_URLS=http://elasticsearch:9200
-      - ES_TAGS_AS_FIELDS_ALL=true
-    depends_on:
-      - elasticsearch
-    restart: on-failure
-  elasticsearch:
-    container_name: elasticsearch
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.13.2
-    environment:
-      - "discovery.type=single-node"
-      - "cluster.name=jaeger"
-      - "xpack.security.enabled=false"
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    ports:
-      - "9200"
-      - "9300"
+      - METRICS_STORAGE_TYPE=prometheus
+      - PROMETHEUS_SERVER_URL=http://prometheus:9090
+      - SPAN_STORAGE_TYPE=badger
+      - BADGER_EPHEMERAL=false
+      - BADGER_DIRECTORY_VALUE=/badger/data
+      - BADGER_DIRECTORY_KEY=/badger/key
     volumes:
-      - esdata:/usr/share/elasticsearch/data
+      - jaeger_data:/badger
+    depends_on:
+      - prometheus
     restart: on-failure
-  
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 50M
+        reservations:
+          cpus: '0.25'
+          memory: 20M
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090"
+      
 volumes:
-  esdata:
+  jaeger_data:
 
